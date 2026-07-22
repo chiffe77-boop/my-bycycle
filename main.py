@@ -335,7 +335,7 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
-st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 우리 동네는 얼마나 잘 달릴까?</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 우리 동네 따릉이 오늘도 잘 달릴까? </div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="sub-title">25개 자치구의 따릉이 이용 패턴을 읽고, 비슷한 동네·숨은 강자·성장 시나리오까지 발견하는 데이터 인사이트 앱</div>',
     unsafe_allow_html=True,
