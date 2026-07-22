@@ -12,7 +12,7 @@ import streamlit as st
 from sklearn.preprocessing import StandardScaler
 
 st.set_page_config(
-    page_title="서울 자전거 생활지수",
+    page_title="서울 따릉이 생활지수",
     page_icon="🚲",
     layout="wide",
 )
