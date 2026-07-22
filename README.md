@@ -1,4 +1,4 @@
-서울 자전거 생활지수 Streamlit 앱
+서울 따릉이 생활지수 Streamlit 앱
 파일 구성
 `app.py`: Streamlit 웹앱 코드
 `requirements.txt`: 배포에 필요한 패키지
