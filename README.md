@@ -1,4 +1,4 @@
-# 🚲 서울 따릉이 생활지수
+# 🚲 서울 따릉이 생활지수 (Seoul Ddareungi Intelligence)
 ### Seoul Ddareungi Life Index
 
 > **서울시 공공데이터를 활용하여 자치구별 따릉이 이용 패턴을 분석하고,
