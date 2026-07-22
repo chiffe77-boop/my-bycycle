@@ -235,6 +235,10 @@ def build_clusters(month_share: pd.DataFrame, summary: pd.DataFrame, n_clusters:
     features["log_volume"] = np.log1p(summary.loc[features.index, "연간 대여건수"])
     features["consistency"] = summary.loc[features.index, "연중 지속성 점수"] / 100
     features["growth"] = summary.loc[features.index, "전년 대비 성장률"].fillna(0) / 100
+
+    # 월 컬럼은 정수(1~12), 추가 지표 컬럼은 문자열이므로
+    # scikit-learn 1.2+에서 혼합 컬럼명 오류가 발생할 수 있다.
+    features.columns = features.columns.astype(str)
     scaled = StandardScaler().fit_transform(features)
     model = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
     labels = model.fit_predict(scaled)
