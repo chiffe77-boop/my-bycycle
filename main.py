@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide",
 )
 
-DATA_FILE = Path(__file__).parent / "서울시 공공자전거 자치구별 대여건수(2021년).xlsx"
+DATA_FILE = Path(__file__).parent / "서울시 공공따릉이 자치구별 대여건수(2021년).xlsx"
 GEOJSON_URL = (
     "https://raw.githubusercontent.com/southkorea/seoul-maps/"
     "master/kostat/2013/json/seoul_municipalities_geo_simple.json"
@@ -147,8 +147,8 @@ def prepare_analysis(df: pd.DataFrame, year: int = TARGET_YEAR):
         "연중 지속성 점수": consistency_score.reindex(district_cols).values,
         "성수기 활력 점수": peak_score.reindex(district_cols).values,
         "성장성 점수": growth_score.reindex(district_cols).values,
-        "서울 자전거 생활지수": life_index.reindex(district_cols).values,
-    }).sort_values("서울 자전거 생활지수", ascending=False)
+        "서울 따릉이 생활지수": life_index.reindex(district_cols).values,
+    }).sort_values("서울 따릉이 생활지수", ascending=False)
 
     summary["생활지수 순위"] = np.arange(1, len(summary) + 1)
     summary = summary.set_index("자치구", drop=False)
@@ -189,7 +189,7 @@ def similarity_table(selected: str, scaled_df: pd.DataFrame, summary: pd.DataFra
     result = pd.DataFrame({
         "자치구": distances.index,
         "유사도 점수": sim_score.values,
-        "생활지수": summary.loc[distances.index, "서울 자전거 생활지수"].values,
+        "생활지수": summary.loc[distances.index, "서울 따릉이 생활지수"].values,
         "연간 대여건수": summary.loc[distances.index, "연간 대여건수"].values,
         "성장률": summary.loc[distances.index, "전년 대비 성장률"].values,
     })
@@ -207,7 +207,7 @@ def district_insights(selected: str, summary: pd.DataFrame, month_matrix: pd.Dat
     avg_value = month_matrix.loc[selected].mean()
 
     insights = [
-        f"**{selected}의 생활지수는 {row['서울 자전거 생활지수']:.1f}점으로 서울 25개 자치구 중 {rank}위**입니다.",
+        f"**{selected}의 생활지수는 {row['서울 따릉이 생활지수']:.1f}점으로 서울 25개 자치구 중 {rank}위**입니다.",
         f"2021년 연간 대여건수는 **{total:,.0f}건**이며, 가장 많이 이용한 달은 **{peak_m}월({peak_value:,.0f}건)**입니다.",
         f"최고 이용월은 월평균보다 **{(peak_value / avg_value - 1) * 100:.1f}%** 높아 계절적 피크가 나타납니다.",
     ]
@@ -238,7 +238,7 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
-st.markdown('<div class="main-title">🚲 서울 자전거 생활지수</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="sub-title">2021년 따릉이 이용 규모·지속성·성수기 활력·성장성을 한 번에 분석하는 데이터 인사이트 서비스</div>',
     unsafe_allow_html=True,
@@ -261,7 +261,7 @@ with st.sidebar:
         "- 전년 대비 성장성 15%"
     )
     st.info(
-        "이 지수는 공공자전거 이용 데이터만으로 만든 상대평가 지수입니다. "
+        "이 지수는 공공따릉이 이용 데이터만으로 만든 상대평가 지수입니다. "
         "인구·면적·대여소 수를 반영한 정책지수는 추가 데이터 결합이 필요합니다."
     )
 
@@ -275,11 +275,11 @@ selected_row = summary.loc[selected_gu]
 
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("서울 전체 대여건수", f"{seoul_total/1_000_000:.1f}M건")
-k2.metric("생활지수 1위", leader["자치구"], f"{leader['서울 자전거 생활지수']:.1f}점")
+k2.metric("생활지수 1위", leader["자치구"], f"{leader['서울 따릉이 생활지수']:.1f}점")
 k3.metric("서울 최고 이용월", f"{int(peak_all)}월", f"{month_matrix.sum(axis=0).loc[peak_all]/1_000_000:.2f}M건")
 k4.metric(
     f"{selected_gu} 생활지수",
-    f"{selected_row['서울 자전거 생활지수']:.1f}점",
+    f"{selected_row['서울 따릉이 생활지수']:.1f}점",
     f"서울 {int(selected_row['생활지수 순위'])}위",
 )
 
@@ -311,7 +311,7 @@ with tab1:
                 hover_name="자치구",
                 hover_data={
                     "연간 대여건수": ":,.0f",
-                    "서울 자전거 생활지수": ":.1f",
+                    "서울 따릉이 생활지수": ":.1f",
                     "생활지수 순위": True,
                 },
             )
@@ -339,7 +339,7 @@ with tab1:
             y="자치구",
             orientation="h",
             text_auto=".3s",
-            hover_data={"서울 자전거 생활지수": ":.1f"},
+            hover_data={"서울 따릉이 생활지수": ":.1f"},
         )
         fig_rank.update_layout(height=520, margin=dict(l=0, r=0, t=10, b=0))
         st.plotly_chart(fig_rank, use_container_width=True)
@@ -354,14 +354,14 @@ with tab1:
     st.plotly_chart(fig_city, use_container_width=True)
 
 with tab2:
-    st.subheader("서울 자전거 생활지수 순위")
-    rank_index = summary.nsmallest(top_n, "생활지수 순위").sort_values("서울 자전거 생활지수")
+    st.subheader("서울 따릉이 생활지수 순위")
+    rank_index = summary.nsmallest(top_n, "생활지수 순위").sort_values("서울 따릉이 생활지수")
     fig_index = px.bar(
         rank_index,
-        x="서울 자전거 생활지수",
+        x="서울 따릉이 생활지수",
         y="자치구",
         orientation="h",
-        text="서울 자전거 생활지수",
+        text="서울 따릉이 생활지수",
         hover_data={
             "이용규모 점수": ":.1f",
             "연중 지속성 점수": ":.1f",
@@ -513,7 +513,7 @@ with tab5:
 
     st.subheader("분석 데이터 내려받기")
     export_cols = [
-        "자치구", "생활지수 순위", "서울 자전거 생활지수", "연간 대여건수",
+        "자치구", "생활지수 순위", "서울 따릉이 생활지수", "연간 대여건수",
         "전년 대비 성장률", "이용규모 점수", "연중 지속성 점수",
         "성수기 활력 점수", "성장성 점수", "최고 이용월", "최저 이용월",
     ]
@@ -527,6 +527,6 @@ with tab5:
 
 st.divider()
 st.caption(
-    "데이터: 서울시 공공자전거 자치구별 대여건수. "
+    "데이터: 서울시 공공따릉이 자치구별 대여건수. "
     "생활지수는 본 웹앱이 정의한 상대평가 지수이며 공식 서울시 지표가 아닙니다."
 )
