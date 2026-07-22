@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide",
 )
 
-DATA_FILE = Path(__file__).parent / "서울시 공공따릉이 자치구별 대여건수(2021년).xlsx"
+DATA_FILE = Path(__file__).parent / "서울시 공공자전거 자치구별 대여건수(2021년).xlsx"
 GEOJSON_URL = (
     "https://raw.githubusercontent.com/southkorea/seoul-maps/"
     "master/kostat/2013/json/seoul_municipalities_geo_simple.json"
@@ -527,6 +527,6 @@ with tab5:
 
 st.divider()
 st.caption(
-    "데이터: 서울시 공공따릉이 자치구별 대여건수. "
+    "데이터: 서울시 공공자전거 자치구별 대여건수. "
     "생활지수는 본 웹앱이 정의한 상대평가 지수이며 공식 서울시 지표가 아닙니다."
 )
