@@ -9,6 +9,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 
 st.set_page_config(
@@ -225,12 +227,103 @@ def district_insights(selected: str, summary: pd.DataFrame, month_matrix: pd.Dat
     return insights
 
 
+
+
+def build_clusters(month_share: pd.DataFrame, summary: pd.DataFrame, n_clusters: int = 4) -> pd.DataFrame:
+    """월별 이용구조와 규모·지속성·성장성을 바탕으로 자치구 이용 유형을 분류한다."""
+    features = month_share.copy()
+    features["log_volume"] = np.log1p(summary.loc[features.index, "연간 대여건수"])
+    features["consistency"] = summary.loc[features.index, "연중 지속성 점수"] / 100
+    features["growth"] = summary.loc[features.index, "전년 대비 성장률"].fillna(0) / 100
+    scaled = StandardScaler().fit_transform(features)
+    model = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
+    labels = model.fit_predict(scaled)
+
+    result = pd.DataFrame(index=features.index)
+    result["cluster"] = labels
+    cluster_stats = []
+    for cluster_id in sorted(result["cluster"].unique()):
+        members = result.index[result["cluster"] == cluster_id]
+        monthly_avg = month_share.loc[members].mean()
+        warm = monthly_avg[[4, 5, 6, 7, 8, 9, 10]].sum()
+        winter = monthly_avg[[12, 1, 2]].sum()
+        vol_pct = summary.loc[members, "연간 대여건수"].rank(pct=True).mean()
+        consistency = summary.loc[members, "연중 지속성 점수"].mean()
+        growth = summary.loc[members, "전년 대비 성장률"].mean()
+        peak = int(monthly_avg.idxmax())
+        if consistency >= 60 and winter >= 0.17:
+            label = "연중 생활형"
+        elif warm >= 0.66:
+            label = "봄·여름 레저형"
+        elif growth >= summary["전년 대비 성장률"].median():
+            label = "성장 가속형"
+        elif vol_pct >= 0.55:
+            label = "대규모 수요형"
+        else:
+            label = "계절 민감형"
+        cluster_stats.append((cluster_id, label, peak))
+
+    label_map = {c: label for c, label, _ in cluster_stats}
+    peak_map = {c: peak for c, _, peak in cluster_stats}
+    result["이용 유형"] = result["cluster"].map(label_map)
+    result["대표 피크월"] = result["cluster"].map(peak_map)
+    return result
+
+
+def hidden_champions(summary: pd.DataFrame) -> pd.DataFrame:
+    """지속성·성장성·계절 활력으로 기대 이용량을 만들고 실제 이용량과의 차이를 계산한다."""
+    work = summary.copy()
+    X = work[["연중 지속성 점수", "성수기 활력 점수", "성장성 점수"]].fillna(50)
+    y = np.log1p(work["연간 대여건수"])
+    model = LinearRegression().fit(X, y)
+    expected = np.expm1(model.predict(X))
+    work["기대 대여건수"] = expected
+    work["기대 대비 초과율"] = (work["연간 대여건수"] / work["기대 대여건수"] - 1) * 100
+    work["숨은 강자 점수"] = pct_rank(work["기대 대비 초과율"])
+    return work.sort_values("기대 대비 초과율", ascending=False)
+
+
+def policy_recommendations(selected: str, summary: pd.DataFrame) -> list[str]:
+    row = summary.loc[selected]
+    recs = []
+    if row["연중 지속성 점수"] >= 70:
+        recs.append("출퇴근·생활권 중심의 상시 거치소 운영과 정기권 커뮤니케이션을 강화합니다.")
+    else:
+        recs.append("비수기 이용 촉진을 위해 계절별 쿠폰·안전 캠페인·관광 동선 연계를 검토합니다.")
+    if row["이용규모 점수"] >= 70:
+        recs.append("수요가 큰 지역이므로 피크 시간대 재배치와 대여소 포화 모니터링이 우선입니다.")
+    else:
+        recs.append("절대 이용량 확대보다 잠재 수요가 있는 생활권과 환승 거점의 선택적 확장이 적절합니다.")
+    if row["성장성 점수"] >= 70:
+        recs.append("성장세가 빠르므로 신규 거치소 후보지와 자전거도로 연결 구간을 선제적으로 점검합니다.")
+    elif row["성장성 점수"] <= 30:
+        recs.append("성장 둔화 원인을 대여소 접근성·차량 가용성·경쟁 교통수단 관점에서 진단합니다.")
+    if row["성수기 활력 점수"] >= 70:
+        recs.append("성수기 수요가 강해 한강·공원·상권과 결합한 레저형 이용 콘텐츠가 효과적입니다.")
+    return recs[:4]
+
+
+def city_story(summary: pd.DataFrame, month_matrix: pd.DataFrame) -> str:
+    top = summary.nlargest(1, "서울 따릉이 생활지수").iloc[0]
+    growth = summary.nlargest(1, "전년 대비 성장률").iloc[0]
+    stable = summary.nlargest(1, "연중 지속성 점수").iloc[0]
+    peak_month = int(month_matrix.sum(axis=0).idxmax())
+    return (
+        f"2021년 서울 따릉이의 중심은 **{top['자치구']}**였습니다. "
+        f"서울 전체 이용은 **{peak_month}월**에 정점을 찍었고, "
+        f"가장 빠르게 성장한 곳은 **{growth['자치구']}**, "
+        f"계절 변화에도 가장 꾸준했던 곳은 **{stable['자치구']}**입니다."
+    )
+
 # -------------------------
 # Load and validate
 # -------------------------
 try:
     raw = load_raw_data(DATA_FILE)
     summary, month_matrix, month_share, scaled_df = prepare_analysis(raw)
+    cluster_df = build_clusters(month_share, summary)
+    champion_df = hidden_champions(summary)
+    summary["이용 유형"] = cluster_df["이용 유형"]
 except Exception as exc:
     st.error(f"데이터를 불러오지 못했습니다: {exc}")
     st.stop()
@@ -238,9 +331,9 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
-st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 우리 동네는 얼마나 잘 달릴까?</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-title">2021년 따릉이 이용 규모·지속성·성수기 활력·성장성을 한 번에 분석하는 데이터 인사이트 서비스</div>',
+    '<div class="sub-title">25개 자치구의 따릉이 이용 패턴을 읽고, 비슷한 동네·숨은 강자·성장 시나리오까지 발견하는 데이터 인사이트 앱</div>',
     unsafe_allow_html=True,
 )
 
@@ -261,7 +354,7 @@ with st.sidebar:
         "- 전년 대비 성장성 15%"
     )
     st.info(
-        "이 지수는 공공따릉이 이용 데이터만으로 만든 상대평가 지수입니다. "
+        "이 지수는 공공자전거 이용 데이터만으로 만든 상대평가 지수입니다. "
         "인구·면적·대여소 수를 반영한 정책지수는 추가 데이터 결합이 필요합니다."
     )
 
@@ -286,11 +379,13 @@ k4.metric(
 # -------------------------
 # Tabs
 # -------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "서울 한눈에", "생활지수", "월별 패턴", "비슷한 자치구", "자동 인사이트"
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "서울 한눈에", "생활지수", "월별 패턴", "비슷한 자치구",
+    "이용 유형", "숨은 강자", "성장 시뮬레이션", "자동 인사이트"
 ])
 
 with tab1:
+    st.success(city_story(summary, month_matrix))
     left, right = st.columns([1.2, 1])
     with left:
         st.subheader("자치구별 연간 대여건수")
@@ -490,10 +585,102 @@ with tab4:
         hide_index=True,
     )
 
+
 with tab5:
+    st.subheader("서울 따릉이 이용 유형 지도")
+    st.caption("월별 이용 비중, 이용 규모, 지속성, 성장성을 함께 반영한 비지도학습 군집입니다.")
+    cluster_plot = summary.reset_index(drop=True).copy()
+    fig_cluster = px.scatter(
+        cluster_plot,
+        x="연중 지속성 점수",
+        y="전년 대비 성장률",
+        size="연간 대여건수",
+        color="이용 유형",
+        hover_name="자치구",
+        hover_data={"서울 따릉이 생활지수": ":.1f", "연간 대여건수": ":,.0f"},
+        size_max=46,
+    )
+    fig_cluster.update_layout(height=500, margin=dict(l=0, r=0, t=20, b=0))
+    st.plotly_chart(fig_cluster, use_container_width=True)
+
+    selected_type = summary.loc[selected_gu, "이용 유형"]
+    peers = summary[summary["이용 유형"] == selected_type].sort_values("서울 따릉이 생활지수", ascending=False)
+    st.info(f"**{selected_gu}는 ‘{selected_type}’ 유형**입니다. 같은 유형: {', '.join(peers['자치구'].tolist())}")
+    st.dataframe(
+        peers[["자치구", "이용 유형", "서울 따릉이 생활지수", "연간 대여건수", "전년 대비 성장률"]]
+        .style.format({"서울 따릉이 생활지수": "{:.1f}", "연간 대여건수": "{:,.0f}", "전년 대비 성장률": "{:.1f}%"}),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+with tab6:
+    st.subheader("규모만 봐서는 놓치는 ‘숨은 강자’")
+    st.caption("지속성·성수기 활력·성장성으로 기대 이용량을 추정한 뒤, 실제 이용량이 기대보다 얼마나 높은지 비교합니다.")
+    top_champ = champion_df.head(top_n).sort_values("기대 대비 초과율")
+    fig_champ = px.bar(
+        top_champ,
+        x="기대 대비 초과율",
+        y="자치구",
+        orientation="h",
+        text="기대 대비 초과율",
+        hover_data={"연간 대여건수": ":,.0f", "기대 대여건수": ":,.0f", "숨은 강자 점수": ":.1f"},
+    )
+    fig_champ.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig_champ.update_layout(height=500, margin=dict(l=0, r=30, t=10, b=0))
+    st.plotly_chart(fig_champ, use_container_width=True)
+
+    champ_row = champion_df.loc[selected_gu]
+    gap = champ_row["기대 대비 초과율"]
+    if gap >= 0:
+        st.success(f"{selected_gu}는 분석모형의 기대치보다 실제 이용량이 **{gap:.1f}% 높아**, 잠재력이 실제 수요로 잘 전환된 지역입니다.")
+    else:
+        st.warning(f"{selected_gu}는 분석모형의 기대치보다 실제 이용량이 **{abs(gap):.1f}% 낮아**, 접근성·대여소 배치·인지도 개선 여지가 있습니다.")
+
+with tab7:
+    st.subheader(f"{selected_gu} 성장 시뮬레이션")
+    growth_assumption = st.slider("연간 대여건수 변화 가정", -30, 50, 10, 5, format="%d%%")
+    scenario = summary.copy()
+    base_volume = scenario.loc[selected_gu, "연간 대여건수"]
+    scenario.loc[selected_gu, "연간 대여건수"] = base_volume * (1 + growth_assumption / 100)
+    scenario["시나리오 규모점수"] = pct_rank(scenario["연간 대여건수"])
+    scenario["시나리오 생활지수"] = (
+        scenario["시나리오 규모점수"] * 0.45
+        + scenario["연중 지속성 점수"] * 0.25
+        + scenario["성수기 활력 점수"] * 0.15
+        + scenario["성장성 점수"] * 0.15
+    )
+    scenario = scenario.sort_values("시나리오 생활지수", ascending=False)
+    scenario["시나리오 순위"] = np.arange(1, len(scenario) + 1)
+    old_rank = int(summary.loc[selected_gu, "생활지수 순위"])
+    new_rank = int(scenario.loc[selected_gu, "시나리오 순위"])
+    old_score = summary.loc[selected_gu, "서울 따릉이 생활지수"]
+    new_score = scenario.loc[selected_gu, "시나리오 생활지수"]
+    city_effect = (scenario["연간 대여건수"].sum() / summary["연간 대여건수"].sum() - 1) * 100
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("현재 순위", f"{old_rank}위")
+    c2.metric("시나리오 순위", f"{new_rank}위", f"{old_rank-new_rank:+d}계단")
+    c3.metric("생활지수 변화", f"{new_score:.1f}점", f"{new_score-old_score:+.1f}점")
+    c4.metric("서울 전체 이용 변화", f"{city_effect:+.2f}%")
+
+    compare_scenario = pd.DataFrame({
+        "구분": ["현재", "시나리오"],
+        "연간 대여건수": [base_volume, scenario.loc[selected_gu, "연간 대여건수"]],
+        "생활지수": [old_score, new_score],
+    })
+    fig_scenario = px.bar(compare_scenario, x="구분", y="연간 대여건수", text_auto=".3s", hover_data={"생활지수": ":.1f"})
+    fig_scenario.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig_scenario, use_container_width=True)
+
+
+with tab8:
     st.subheader(f"{selected_gu} 자동 인사이트")
     for text in district_insights(selected_gu, summary, month_matrix):
         st.markdown(f'<div class="insight-card">{text}</div>', unsafe_allow_html=True)
+
+    st.subheader("데이터 기반 실행 제안")
+    for i, rec in enumerate(policy_recommendations(selected_gu, summary), 1):
+        st.markdown(f'<div class="insight-card"><b>{i}.</b> {rec}</div>', unsafe_allow_html=True)
 
     st.subheader("서울 전체에서 발견한 핵심 신호")
     top_volume = summary.nlargest(1, "연간 대여건수").iloc[0]
