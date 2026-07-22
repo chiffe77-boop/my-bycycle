@@ -64,6 +64,19 @@ def pct_rank(series: pd.Series) -> pd.Series:
     return series.rank(pct=True, method="average") * 100
 
 
+def life_grade(score: float) -> tuple[str, str]:
+    """생활지수를 기억하기 쉬운 등급과 유형으로 변환한다."""
+    if score >= 90:
+        return "A+", "생활 정착형"
+    if score >= 80:
+        return "A", "생활 활성형"
+    if score >= 70:
+        return "B", "성장 생활형"
+    if score >= 60:
+        return "C", "생활 잠재형"
+    return "D", "생활 기반 형성형"
+
+
 @st.cache_data(show_spinner=False)
 def load_raw_data(path: Path) -> pd.DataFrame:
     if not path.exists():
@@ -118,19 +131,28 @@ def prepare_analysis(df: pd.DataFrame, year: int = TARGET_YEAR):
         growth = pd.Series(np.nan, index=district_cols)
 
     # 생활지수의 구성요소
+    # 1) 이용 활성도: 연간 대여량이 많은 정도
     volume_score = pct_rank(annual)
-    cv = month_matrix.std(axis=1) / month_matrix.mean(axis=1)
-    consistency_score = pct_rank(-cv)  # 변동성이 낮을수록 높은 점수
-    peak_month_value = month_matrix.max(axis=1)
-    peak_score = pct_rank(peak_month_value)
+
+    # 2) 연중 지속성: 가장 한산한 달에도 이용이 유지되는 정도
+    monthly_mean = month_matrix.mean(axis=1)
+    low_season_retention = month_matrix.min(axis=1) / monthly_mean
+    consistency_score = pct_rank(low_season_retention)
+
+    # 3) 성장성: 전년 대비 이용 증가율
     growth_score = pct_rank(growth.fillna(growth.median()))
 
-    # 지수: 이용규모 45%, 연중 지속성 25%, 성수기 활력 15%, 성장성 15%
+    # 4) 계절 안정성: 월별 변동폭이 작은 정도
+    cv = month_matrix.std(axis=1) / monthly_mean
+    stability_score = pct_rank(-cv)
+
+    # 서울 따릉이 생활지수
+    # 이용 활성도 40% + 연중 지속성 30% + 성장성 20% + 계절 안정성 10%
     life_index = (
-        volume_score * 0.45
-        + consistency_score * 0.25
-        + peak_score * 0.15
-        + growth_score * 0.15
+        volume_score * 0.40
+        + consistency_score * 0.30
+        + growth_score * 0.20
+        + stability_score * 0.10
     )
 
     warm_share = month_share[[4, 5, 6, 7, 8, 9, 10]].sum(axis=1) * 100
@@ -142,17 +164,21 @@ def prepare_analysis(df: pd.DataFrame, year: int = TARGET_YEAR):
         "연간 대여건수": annual.values,
         "전년 대비 성장률": growth.reindex(district_cols).values,
         "월 변동계수": cv.reindex(district_cols).values,
+        "비수기 유지율": low_season_retention.reindex(district_cols).values,
         "따뜻한 계절 비중": warm_share.reindex(district_cols).values,
         "최고 이용월": peak_month.reindex(district_cols).values,
         "최저 이용월": low_month.reindex(district_cols).values,
         "이용규모 점수": volume_score.reindex(district_cols).values,
         "연중 지속성 점수": consistency_score.reindex(district_cols).values,
-        "성수기 활력 점수": peak_score.reindex(district_cols).values,
         "성장성 점수": growth_score.reindex(district_cols).values,
+        "계절 안정성 점수": stability_score.reindex(district_cols).values,
         "서울 따릉이 생활지수": life_index.reindex(district_cols).values,
     }).sort_values("서울 따릉이 생활지수", ascending=False)
 
     summary["생활지수 순위"] = np.arange(1, len(summary) + 1)
+    grades = summary["서울 따릉이 생활지수"].apply(life_grade)
+    summary["생활지수 등급"] = grades.str[0]
+    summary["생활유형"] = grades.str[1]
     summary = summary.set_index("자치구", drop=False)
 
     # 유사도: 월별 이용구조(12개) + 규모 + 변동성 + 성장률
@@ -209,7 +235,7 @@ def district_insights(selected: str, summary: pd.DataFrame, month_matrix: pd.Dat
     avg_value = month_matrix.loc[selected].mean()
 
     insights = [
-        f"**{selected}의 생활지수는 {row['서울 따릉이 생활지수']:.1f}점으로 서울 25개 자치구 중 {rank}위**입니다.",
+        f"**{selected}의 생활지수는 {row['서울 따릉이 생활지수']:.1f}점({row['생활지수 등급']}, {row['생활유형']})으로 서울 25개 자치구 중 {rank}위**입니다.",
         f"2021년 연간 대여건수는 **{total:,.0f}건**이며, 가장 많이 이용한 달은 **{peak_m}월({peak_value:,.0f}건)**입니다.",
         f"최고 이용월은 월평균보다 **{(peak_value / avg_value - 1) * 100:.1f}%** 높아 계절적 피크가 나타납니다.",
     ]
@@ -275,9 +301,9 @@ def build_clusters(month_share: pd.DataFrame, summary: pd.DataFrame, n_clusters:
 
 
 def hidden_champions(summary: pd.DataFrame) -> pd.DataFrame:
-    """지속성·성장성·계절 활력으로 기대 이용량을 만들고 실제 이용량과의 차이를 계산한다."""
+    """지속성·성장성·계절 안정성으로 기대 이용량을 만들고 실제 이용량과의 차이를 계산한다."""
     work = summary.copy()
-    X = work[["연중 지속성 점수", "성수기 활력 점수", "성장성 점수"]].fillna(50)
+    X = work[["연중 지속성 점수", "계절 안정성 점수", "성장성 점수"]].fillna(50)
     y = np.log1p(work["연간 대여건수"])
     model = LinearRegression().fit(X, y)
     expected = np.expm1(model.predict(X))
@@ -302,8 +328,10 @@ def policy_recommendations(selected: str, summary: pd.DataFrame) -> list[str]:
         recs.append("성장세가 빠르므로 신규 거치소 후보지와 자전거도로 연결 구간을 선제적으로 점검합니다.")
     elif row["성장성 점수"] <= 30:
         recs.append("성장 둔화 원인을 대여소 접근성·차량 가용성·경쟁 교통수단 관점에서 진단합니다.")
-    if row["성수기 활력 점수"] >= 70:
-        recs.append("성수기 수요가 강해 한강·공원·상권과 결합한 레저형 이용 콘텐츠가 효과적입니다.")
+    if row["계절 안정성 점수"] >= 70:
+        recs.append("계절 변화에도 이용이 안정적이므로 출퇴근·생활권 중심의 상시 운영과 정기 이용 프로그램이 적합합니다.")
+    elif row["계절 안정성 점수"] <= 30:
+        recs.append("계절 변동이 커 비수기 프로모션과 날씨 대응형 운영으로 연중 이용 기반을 넓힐 필요가 있습니다.")
     return recs[:4]
 
 
@@ -335,10 +363,14 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
-st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 우리 동네 따릉이 오늘도 잘 달릴까? </div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 따릉이는 우리 동네의 일상이 되었을까?</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-title">25개 자치구의 따릉이 이용 패턴을 읽고, 비슷한 동네·숨은 강자·성장 시나리오까지 발견하는 데이터 인사이트 앱</div>',
+    '<div class="sub-title">따릉이가 서울 시민의 일상 교통수단으로 얼마나 자리 잡았는지 자치구별로 비교하는 데이터 인사이트 앱</div>',
     unsafe_allow_html=True,
+)
+st.info(
+    "**서울 따릉이 생활지수**는 단순히 많이 탄 지역을 보여주는 순위가 아닙니다. "
+    "따릉이가 한 지역에서 **얼마나 활발하고, 일 년 내내 꾸준하며, 성장하고, 계절 변화에도 안정적으로 이용되는지**를 종합한 상대평가 지수입니다."
 )
 
 with st.sidebar:
@@ -352,10 +384,10 @@ with st.sidebar:
     st.divider()
     st.caption("생활지수 산식")
     st.markdown(
-        "- 이용규모 45%\n"
-        "- 연중 지속성 25%\n"
-        "- 성수기 활력 15%\n"
-        "- 전년 대비 성장성 15%"
+        "- 이용 활성도 40%\n"
+        "- 연중 지속성 30%\n"
+        "- 성장성 20%\n"
+        "- 계절 안정성 10%"
     )
     st.info(
         "이 지수는 공공자전거 이용 데이터만으로 만든 상대평가 지수입니다. "
@@ -376,8 +408,8 @@ k2.metric("생활지수 1위", leader["자치구"], f"{leader['서울 따릉이 
 k3.metric("서울 최고 이용월", f"{int(peak_all)}월", f"{month_matrix.sum(axis=0).loc[peak_all]/1_000_000:.2f}M건")
 k4.metric(
     f"{selected_gu} 생활지수",
-    f"{selected_row['서울 따릉이 생활지수']:.1f}점",
-    f"서울 {int(selected_row['생활지수 순위'])}위",
+    f"{selected_row['서울 따릉이 생활지수']:.1f}점 · {selected_row['생활지수 등급']}",
+    f"서울 {int(selected_row['생활지수 순위'])}위 · {selected_row['생활유형']}",
 )
 
 # -------------------------
@@ -464,7 +496,7 @@ with tab2:
         hover_data={
             "이용규모 점수": ":.1f",
             "연중 지속성 점수": ":.1f",
-            "성수기 활력 점수": ":.1f",
+            "계절 안정성 점수": ":.1f",
             "성장성 점수": ":.1f",
         },
     )
@@ -474,12 +506,12 @@ with tab2:
     st.plotly_chart(fig_index, use_container_width=True)
 
     st.subheader(f"{selected_gu} 지수 구성")
-    radar_categories = ["이용규모", "연중 지속성", "성수기 활력", "성장성"]
+    radar_categories = ["이용 활성도", "연중 지속성", "성장성", "계절 안정성"]
     radar_values = [
         selected_row["이용규모 점수"],
         selected_row["연중 지속성 점수"],
-        selected_row["성수기 활력 점수"],
         selected_row["성장성 점수"],
+        selected_row["계절 안정성 점수"],
     ]
     radar_values_closed = radar_values + [radar_values[0]]
     radar_categories_closed = radar_categories + [radar_categories[0]]
@@ -619,7 +651,7 @@ with tab5:
 
 with tab6:
     st.subheader("규모만 봐서는 놓치는 ‘숨은 강자’")
-    st.caption("지속성·성수기 활력·성장성으로 기대 이용량을 추정한 뒤, 실제 이용량이 기대보다 얼마나 높은지 비교합니다.")
+    st.caption("연중 지속성·계절 안정성·성장성으로 기대 이용량을 추정한 뒤, 실제 이용량이 기대보다 얼마나 높은지 비교합니다.")
     top_champ = champion_df.head(top_n).sort_values("기대 대비 초과율")
     fig_champ = px.bar(
         top_champ,
@@ -648,10 +680,10 @@ with tab7:
     scenario.loc[selected_gu, "연간 대여건수"] = base_volume * (1 + growth_assumption / 100)
     scenario["시나리오 규모점수"] = pct_rank(scenario["연간 대여건수"])
     scenario["시나리오 생활지수"] = (
-        scenario["시나리오 규모점수"] * 0.45
-        + scenario["연중 지속성 점수"] * 0.25
-        + scenario["성수기 활력 점수"] * 0.15
-        + scenario["성장성 점수"] * 0.15
+        scenario["시나리오 규모점수"] * 0.40
+        + scenario["연중 지속성 점수"] * 0.30
+        + scenario["성장성 점수"] * 0.20
+        + scenario["계절 안정성 점수"] * 0.10
     )
     scenario = scenario.sort_values("시나리오 생활지수", ascending=False)
     scenario["시나리오 순위"] = np.arange(1, len(scenario) + 1)
@@ -706,7 +738,7 @@ with tab8:
     export_cols = [
         "자치구", "생활지수 순위", "서울 따릉이 생활지수", "연간 대여건수",
         "전년 대비 성장률", "이용규모 점수", "연중 지속성 점수",
-        "성수기 활력 점수", "성장성 점수", "최고 이용월", "최저 이용월",
+        "계절 안정성 점수", "성장성 점수", "최고 이용월", "최저 이용월",
     ]
     csv_data = summary[export_cols].sort_values("생활지수 순위").to_csv(index=False).encode("utf-8-sig")
     st.download_button(
