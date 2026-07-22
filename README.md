@@ -1,28 +1,30 @@
-서울 따릉이 생활지수 Streamlit 앱
+서울 따릉이 생활지수: 우리 동네는 얼마나 잘 달릴까?
+서울시 공공자전거 자치구별 대여건수 자료를 활용한 Streamlit·Plotly 데이터 인사이트 웹앱입니다.
 파일 구성
-`app.py`: Streamlit 웹앱 코드
-`requirements.txt`: 배포에 필요한 패키지
-`data.xlsx`: 서울시 공공자전거 자치구별 대여건수 원본
-로컬 실행
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-Streamlit Community Cloud 배포
-GitHub에 새 저장소를 만듭니다.
-이 폴더의 세 파일을 저장소 최상위 경로에 업로드합니다.
-Streamlit Community Cloud에서 Create app을 선택합니다.
-Repository와 branch를 선택하고 Main file path에 `app.py`를 입력합니다.
-Deploy를 누릅니다.
-생활지수 산식
+`app.py`
+`requirements.txt`
+`서울시 공공자전거 자치구별 대여건수(2021년).xlsx`
+세 파일을 GitHub 저장소 최상단에 그대로 업로드하세요. 데이터 파일명은 변경하지 않아야 합니다.
+주요 기능
+서울 전체 대여 현황 및 자치구 순위
+서울 따릉이 생활지수
+월별·계절별 이용 패턴
+선택 자치구와 비슷한 자치구 추천
+K-means 기반 자치구 이용 유형 분류
+기대 이용량 대비 숨은 강자 탐색
+자치구 성장률 What-if 시뮬레이션
+자동 인사이트 및 데이터 기반 실행 제안
+분석 결과 CSV 다운로드
+생활지수 구성
 이용규모 45%
 연중 지속성 25%
 성수기 활력 15%
 2020년 대비 성장성 15%
-각 항목은 25개 자치구 내 백분위 점수로 변환해 합산합니다.
-유사 자치구 산식
-12개월별 이용 비중
-연간 이용 규모
-월별 변동성
-2020→2021 성장률
-위 변수를 표준화한 뒤 유클리드 거리로 가장 가까운 자치구를 찾습니다.
+본 지수와 군집·기대 이용량 분석은 앱에서 정의한 탐색적 상대평가이며 서울시 공식 지표가 아닙니다.
+Streamlit Community Cloud 배포
+GitHub에서 새 저장소를 만듭니다.
+위 3개 파일과 이 README를 저장소 최상단에 업로드합니다.
+Streamlit Community Cloud에서 새 앱을 생성합니다.
+저장소를 연결하고 Main file path를 `app.py`로 지정합니다.
+Deploy를 누릅니다.
+별도 API 키나 Secrets 설정은 필요하지 않습니다. 서울 지도 GeoJSON은 앱 실행 시 공개 GitHub 저장소에서 가져오며, 연결에 실패하면 막대그래프로 자동 대체됩니다.
