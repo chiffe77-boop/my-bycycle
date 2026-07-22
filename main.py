@@ -17,7 +17,6 @@ st.set_page_config(
     page_title="서울 따릉이 생활지수",
     page_icon="🚲",
     layout="wide",
-    initial_sidebar_state="auto",
 )
 
 DATA_FILE = Path(__file__).parent / "서울시 공공자전거 자치구별 대여건수(2021년).xlsx"
@@ -40,38 +39,10 @@ SEASONS = {
 st.markdown(
     """
     <style>
-    :root {
-        --card-border: rgba(128, 128, 128, .22);
-        --muted-text: #5f6b7a;
-    }
-
-    .main-title {
-        font-size: clamp(1.75rem, 3vw, 2.35rem);
-        line-height: 1.22;
-        font-weight: 800;
-        letter-spacing: -0.035em;
-        margin: 0 0 .35rem 0;
-        word-break: keep-all;
-    }
-    .mobile-title { display: none; }
-    .sub-title {
-        color: var(--muted-text);
-        font-size: 1rem;
-        line-height: 1.6;
-        margin-bottom: 1rem;
-        word-break: keep-all;
-    }
-    .current-district {
-        display: inline-block;
-        padding: .36rem .72rem;
-        margin: .15rem 0 .8rem 0;
-        border-radius: 999px;
-        background: rgba(25, 118, 210, .09);
-        font-size: .9rem;
-        font-weight: 650;
-    }
+    .main-title {font-size: 2.2rem; font-weight: 800; margin-bottom: 0.1rem;}
+    .sub-title {color: #5f6b7a; margin-bottom: 1.2rem;}
     .insight-card {
-        border: 1px solid var(--card-border);
+        border: 1px solid rgba(128,128,128,.22);
         border-radius: 14px;
         padding: 1rem 1.1rem;
         margin: .35rem 0;
@@ -80,89 +51,7 @@ st.markdown(
     .score-box {
         border-radius: 18px;
         padding: 1.2rem;
-        border: 1px solid var(--card-border);
-    }
-
-    /* Streamlit 기본 여백과 카드 가독성 */
-    [data-testid="stAppViewContainer"] .main .block-container {
-        padding-top: 1.4rem;
-        padding-bottom: 2.5rem;
-        max-width: 1320px;
-    }
-    [data-testid="stMetric"] {
-        border: 1px solid var(--card-border);
-        border-radius: 14px;
-        padding: .8rem .9rem;
-        min-height: 118px;
-    }
-    [data-testid="stMetricLabel"] { font-size: .88rem; }
-    [data-testid="stMetricValue"] { line-height: 1.15; }
-    div[data-baseweb="tab-list"] {
-        gap: .25rem;
-        overflow-x: auto;
-        scrollbar-width: thin;
-    }
-    button[data-baseweb="tab"] {
-        white-space: nowrap;
-        padding-left: .75rem;
-        padding-right: .75rem;
-    }
-
-    @media (max-width: 768px) {
-        [data-testid="stAppViewContainer"] .main .block-container {
-            padding: .85rem .82rem 2rem .82rem;
-        }
-        .desktop-title { display: none; }
-        .mobile-title { display: block; }
-        .main-title {
-            font-size: 1.68rem;
-            line-height: 1.28;
-            letter-spacing: -0.045em;
-            margin-bottom: .45rem;
-        }
-        .sub-title {
-            font-size: .91rem;
-            line-height: 1.52;
-            margin-bottom: .75rem;
-        }
-        .current-district {
-            font-size: .84rem;
-            margin-bottom: .65rem;
-        }
-        [data-testid="stAlert"] {
-            padding: .72rem .78rem;
-            font-size: .88rem;
-        }
-        [data-testid="stMetric"] {
-            min-height: 98px;
-            padding: .65rem .72rem;
-        }
-        [data-testid="stMetricLabel"] { font-size: .79rem; }
-        [data-testid="stMetricValue"] { font-size: 1.25rem; }
-        [data-testid="stMetricDelta"] { font-size: .76rem; }
-        h2 {
-            font-size: 1.28rem !important;
-            line-height: 1.35 !important;
-        }
-        h3 {
-            font-size: 1.08rem !important;
-            line-height: 1.4 !important;
-        }
-        div[data-baseweb="tab-list"] {
-            gap: .05rem;
-            margin-bottom: .25rem;
-        }
-        button[data-baseweb="tab"] {
-            font-size: .82rem;
-            min-width: max-content;
-            padding: .42rem .58rem;
-        }
-        .insight-card, .score-box {
-            border-radius: 12px;
-            padding: .82rem .88rem;
-        }
-        [data-testid="stDataFrame"] { font-size: .82rem; }
-        .js-plotly-plot .plotly .modebar { display: none !important; }
+        border: 1px solid rgba(128,128,128,.22);
     }
     </style>
     """,
@@ -474,12 +363,9 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
+st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 따릉이는 우리 동네의 일상이 되었을까?</div>', unsafe_allow_html=True)
 st.markdown(
-    """
-    <div class="main-title desktop-title">🚲 서울 따릉이 생활지수: 따릉이는 우리 동네의 일상이 되었을까?</div>
-    <div class="main-title mobile-title">🚲 서울 따릉이 생활지수</div>
-    <div class="sub-title">우리 동네에서 따릉이가 얼마나 일상적인 교통수단으로 자리 잡았는지 데이터로 살펴봅니다.</div>
-    """,
+    '<div class="sub-title">따릉이가 서울 시민의 일상 교통수단으로 얼마나 자리 잡았는지 자치구별로 비교하는 데이터 인사이트 앱</div>',
     unsafe_allow_html=True,
 )
 st.info(
@@ -524,7 +410,7 @@ with st.sidebar:
 
 # 사이드바 선택값을 앱 전체의 단일 기준값으로 사용합니다.
 selected_gu = st.session_state["selected_gu"]
-st.markdown(f'<div class="current-district">현재 분석 중 · {selected_gu}</div>', unsafe_allow_html=True)
+st.caption(f"현재 분석 중인 자치구: **{selected_gu}**")
 
 # -------------------------
 # KPI row
