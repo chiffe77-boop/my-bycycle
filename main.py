@@ -17,6 +17,7 @@ st.set_page_config(
     page_title="서울 따릉이 생활지수",
     page_icon="🚲",
     layout="wide",
+    initial_sidebar_state="auto",
 )
 
 DATA_FILE = Path(__file__).parent / "서울시 공공자전거 자치구별 대여건수(2021년).xlsx"
@@ -39,10 +40,38 @@ SEASONS = {
 st.markdown(
     """
     <style>
-    .main-title {font-size: 2.2rem; font-weight: 800; margin-bottom: 0.1rem;}
-    .sub-title {color: #5f6b7a; margin-bottom: 1.2rem;}
+    :root {
+        --card-border: rgba(128, 128, 128, .22);
+        --muted-text: #5f6b7a;
+    }
+
+    .main-title {
+        font-size: clamp(1.75rem, 3vw, 2.35rem);
+        line-height: 1.22;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        margin: 0 0 .35rem 0;
+        word-break: keep-all;
+    }
+    .mobile-title { display: none; }
+    .sub-title {
+        color: var(--muted-text);
+        font-size: 1rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        word-break: keep-all;
+    }
+    .current-district {
+        display: inline-block;
+        padding: .36rem .72rem;
+        margin: .15rem 0 .8rem 0;
+        border-radius: 999px;
+        background: rgba(25, 118, 210, .09);
+        font-size: .9rem;
+        font-weight: 650;
+    }
     .insight-card {
-        border: 1px solid rgba(128,128,128,.22);
+        border: 1px solid var(--card-border);
         border-radius: 14px;
         padding: 1rem 1.1rem;
         margin: .35rem 0;
@@ -51,7 +80,89 @@ st.markdown(
     .score-box {
         border-radius: 18px;
         padding: 1.2rem;
-        border: 1px solid rgba(128,128,128,.22);
+        border: 1px solid var(--card-border);
+    }
+
+    /* Streamlit 기본 여백과 카드 가독성 */
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding-top: 1.4rem;
+        padding-bottom: 2.5rem;
+        max-width: 1320px;
+    }
+    [data-testid="stMetric"] {
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: .8rem .9rem;
+        min-height: 118px;
+    }
+    [data-testid="stMetricLabel"] { font-size: .88rem; }
+    [data-testid="stMetricValue"] { line-height: 1.15; }
+    div[data-baseweb="tab-list"] {
+        gap: .25rem;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+    button[data-baseweb="tab"] {
+        white-space: nowrap;
+        padding-left: .75rem;
+        padding-right: .75rem;
+    }
+
+    @media (max-width: 768px) {
+        [data-testid="stAppViewContainer"] .main .block-container {
+            padding: .85rem .82rem 2rem .82rem;
+        }
+        .desktop-title { display: none; }
+        .mobile-title { display: block; }
+        .main-title {
+            font-size: 1.68rem;
+            line-height: 1.28;
+            letter-spacing: -0.045em;
+            margin-bottom: .45rem;
+        }
+        .sub-title {
+            font-size: .91rem;
+            line-height: 1.52;
+            margin-bottom: .75rem;
+        }
+        .current-district {
+            font-size: .84rem;
+            margin-bottom: .65rem;
+        }
+        [data-testid="stAlert"] {
+            padding: .72rem .78rem;
+            font-size: .88rem;
+        }
+        [data-testid="stMetric"] {
+            min-height: 98px;
+            padding: .65rem .72rem;
+        }
+        [data-testid="stMetricLabel"] { font-size: .79rem; }
+        [data-testid="stMetricValue"] { font-size: 1.25rem; }
+        [data-testid="stMetricDelta"] { font-size: .76rem; }
+        h2 {
+            font-size: 1.28rem !important;
+            line-height: 1.35 !important;
+        }
+        h3 {
+            font-size: 1.08rem !important;
+            line-height: 1.4 !important;
+        }
+        div[data-baseweb="tab-list"] {
+            gap: .05rem;
+            margin-bottom: .25rem;
+        }
+        button[data-baseweb="tab"] {
+            font-size: .82rem;
+            min-width: max-content;
+            padding: .42rem .58rem;
+        }
+        .insight-card, .score-box {
+            border-radius: 12px;
+            padding: .82rem .88rem;
+        }
+        [data-testid="stDataFrame"] { font-size: .82rem; }
+        .js-plotly-plot .plotly .modebar { display: none !important; }
     }
     </style>
     """,
@@ -363,9 +474,12 @@ except Exception as exc:
 # -------------------------
 # Header + sidebar
 # -------------------------
-st.markdown('<div class="main-title">🚲 서울 따릉이 생활지수: 따릉이는 우리 동네의 일상이 되었을까?</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-title">따릉이가 서울 시민의 일상 교통수단으로 얼마나 자리 잡았는지 자치구별로 비교하는 데이터 인사이트 앱</div>',
+    """
+    <div class="main-title desktop-title">🚲 서울 따릉이 생활지수: 따릉이는 우리 동네의 일상이 되었을까?</div>
+    <div class="main-title mobile-title">🚲 서울 따릉이 생활지수</div>
+    <div class="sub-title">우리 동네에서 따릉이가 얼마나 일상적인 교통수단으로 자리 잡았는지 데이터로 살펴봅니다.</div>
+    """,
     unsafe_allow_html=True,
 )
 st.info(
@@ -373,14 +487,28 @@ st.info(
     "따릉이가 한 지역에서 **얼마나 활발하고, 일 년 내내 꾸준하며, 성장하고, 계절 변화에도 안정적으로 이용되는지**를 종합한 상대평가 지수입니다."
 )
 
+district_options = (
+    summary.sort_values("생활지수 순위")["자치구"].tolist()
+)
+
+# 선택 상태를 앱 전체에서 하나의 값으로 관리합니다.
+# 최초 접속 시에만 마포구를 기본값으로 설정하고, 이후에는 사용자가 고른 값을 유지합니다.
+if "selected_gu" not in st.session_state:
+    st.session_state["selected_gu"] = (
+        "마포구" if "마포구" in district_options else district_options[0]
+    )
+elif st.session_state["selected_gu"] not in district_options:
+    st.session_state["selected_gu"] = district_options[0]
+
 with st.sidebar:
     st.header("분석 설정")
-    selected_gu = st.selectbox(
+    st.selectbox(
         "자치구 선택",
-        summary.sort_values("생활지수 순위")["자치구"].tolist(),
-        index=summary.sort_values("생활지수 순위")["자치구"].tolist().index("마포구"),
+        options=district_options,
+        key="selected_gu",
+        help="자치구를 바꾸면 모든 지표와 그래프가 해당 자치구 기준으로 다시 계산됩니다.",
     )
-    top_n = st.slider("순위 표시 개수", 5, 25, 10)
+    top_n = st.slider("순위 표시 개수", 5, 25, 10, key="top_n")
     st.divider()
     st.caption("생활지수 산식")
     st.markdown(
@@ -393,6 +521,10 @@ with st.sidebar:
         "이 지수는 공공자전거 이용 데이터만으로 만든 상대평가 지수입니다. "
         "인구·면적·대여소 수를 반영한 정책지수는 추가 데이터 결합이 필요합니다."
     )
+
+# 사이드바 선택값을 앱 전체의 단일 기준값으로 사용합니다.
+selected_gu = st.session_state["selected_gu"]
+st.markdown(f'<div class="current-district">현재 분석 중 · {selected_gu}</div>', unsafe_allow_html=True)
 
 # -------------------------
 # KPI row
